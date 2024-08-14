@@ -32,6 +32,7 @@ def evaluate_model_with_tracking_by_coin(model, env):
     
     # Collecter les résultats par coin
     results = {
+        'time': [],
         'portfolio_value': [],
         'actions': [],
         'open': [],
@@ -41,6 +42,7 @@ def evaluate_model_with_tracking_by_coin(model, env):
     }
     
     for info in infos:
+        results['time'].append(info['date'])
         results['portfolio_value'].append(info['portfolio_valuation'])
         results['actions'].append(int(info['real_position']))
         results['open'].append(info['data_open'])
@@ -50,8 +52,70 @@ def evaluate_model_with_tracking_by_coin(model, env):
 
     # Convertir les résultats en DataFrames
     df_results = pd.DataFrame(results)
+    df_results.set_index('time', inplace=True)
 
-    return df_results
+    market_return = df_results.iloc[-1]['close']/df_results.iloc[0]['open']-1
+    portfolio_return = df_results.iloc[-1]['portfolio_value']/df_results.iloc[0]['portfolio_value']-1
+    num_achats = ((df_results['actions'].shift(1) == 0) & (df_results['actions'] == 1)).sum()
+
+    return df_results, {'market_return':market_return*100, 'portfolio_return':portfolio_return*100, 'num_achats':num_achats}
+
+
+def calculate_performance(performance_records, output_dir):
+    """
+    Calcule et sauvegarde les performances d'un modèle de trading pour différents ensembles de données (train/test),
+    exchanges, et coins.
+
+    Args:
+    performance_records (list of dict): Liste de dictionnaires où chaque dictionnaire contient les performances 
+                                        pour un ensemble de données, un exchange et un coin spécifiques.
+                                        Exemple de structure de dictionnaire :
+                                        {
+                                            "Set": "Test",
+                                            "Exchange": "binance",
+                                            "Coin": "BTCUSDT",
+                                            "Portfolio Return": 0.05,
+                                            "Market Return": 0.03
+                                        }
+    output_dir (str): Répertoire où les fichiers CSV de performances seront sauvegardés.
+
+    Sauvegarde:
+    - `performance_details.csv`: Contient les performances détaillées pour chaque ensemble de données, exchange, et coin.
+    - `performance_summary.csv`: Contient les moyennes des performances par ensemble (train/test), exchange, et coin,
+                                 ainsi que les moyennes globales pour chaque ensemble.
+    """
+    # Créer un DataFrame Pandas pour stocker les résultats
+    performance_df = pd.DataFrame(performance_records)
+    
+    # Sélectionner uniquement les colonnes numériques pour le calcul des moyennes
+    numeric_cols = performance_df.select_dtypes(include=['number']).columns
+
+    # Conserver les colonnes de regroupement
+    group_cols = ['Set', 'Exchange', 'Coin']
+
+    # Calcul des moyennes par ensemble, exchange et coin en utilisant seulement les colonnes numériques
+    avg_performance = performance_df[group_cols + list(numeric_cols)].groupby(group_cols).mean().reset_index()
+
+    # Ajouter les moyennes générales pour chaque ensemble
+    overall_avg = performance_df.groupby('Set')[numeric_cols].mean().reset_index()
+    overall_avg['Exchange'] = "All"
+    overall_avg['Coin'] = "All"
+    avg_performance = pd.concat([avg_performance, overall_avg], ignore_index=True)
+    
+    # Calcul des moyennes par exchange (sur tous les coins)
+    avg_by_exchange = performance_df.groupby(['Set', 'Exchange'])[numeric_cols].mean().reset_index()
+    avg_by_exchange['Coin'] = "All"  # Marquer que c'est une moyenne sur tous les coins
+    avg_performance = pd.concat([avg_performance, avg_by_exchange], ignore_index=True)
+
+
+    # Calcul des moyennes par coin (sur tous les exchanges)
+    avg_by_coin = performance_df.groupby(['Set', 'Coin'])[numeric_cols].mean().reset_index()
+    avg_by_coin['Exchange'] = "All"  # Marquer que c'est une moyenne sur tous les coins
+    avg_performance = pd.concat([avg_performance, avg_by_coin], ignore_index=True)
+    
+    # Sauvegarder le tableau final en CSV
+    performance_df.to_csv(f"{output_dir}/performance_details.csv", index=False)
+    avg_performance.to_csv(f"{output_dir}/performance_summary.csv", index=False)
 
 
 # Plotting the results
@@ -137,3 +201,4 @@ def plot_results(data_plot, name):
 
     plt.tight_layout()
     plt.savefig(f'{name}.png')
+    plt.close()

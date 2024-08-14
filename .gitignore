@@ -1,3 +1,4 @@
 *.csv
 logs
 output
+__pycache__

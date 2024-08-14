@@ -4,11 +4,12 @@ import datetime
 import argparse
 import numpy as np
 import torch
+from stable_baselines3 import PPO
 
 from data import download_and_split_data
-from env import create_multi_env, create_env
+from environnement import create_multi_env, create_env
 from train import train_ppo
-from eval import evaluate_model_with_tracking_by_coin, plot_results
+from eval import evaluate_model_with_tracking_by_coin, plot_results, calculate_performance
 
 def extract_coin_and_exchange(filename):
     # Séparer la chaîne par le délimiteur '-'
@@ -22,10 +23,11 @@ def extract_coin_and_exchange(filename):
 
     return exchange, coin_pair
 
+
 def main(args):
     """ Main execution for training / testing"""
     log_dir = "./logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    os.makedirs('output/', exist_ok=True)
+    os.makedirs(f'{log_dir}/output/', exist_ok=True)
 
     # Dataloading
     download_and_split_data()
@@ -36,23 +38,34 @@ def main(args):
     val_env = create_multi_env(dataset_dir='data/val/*.pkl', log_dir=log_dir, state_window_size=args.state_window_size, short=args.short)
 
     # Entraîner le modèle PPO avec l'ensemble d'entraînement et évaluer sur l'ensemble de validation/test
-    model = train_ppo(train_env, val_env, log_dir=log_dir, total_timesteps=args.total_timesteps, n_steps=args.n_steps, batch_size=args.batch_size, n_epochs=args.n_epochs)
-
-    # Sauvegarder le modèle
-    model.save('output/' + args.model_path)
-    print(f"Model saved to {'output/' + args.model_path}")
+    if os.path.exists(args.model_path):
+        model = PPO.load(args.model_path)
+    else:
+        model = train_ppo(train_env, val_env, log_dir=log_dir, total_timesteps=args.total_timesteps, n_steps=args.n_steps, 
+                        batch_size=args.batch_size, n_epochs=args.n_epochs)
 
     # Évaluation sur l'ensemble de test, séparé par coin
-    for file_name in os.listdir('data/test'):
-        if file_name.endswith(".pkl"):
-            exchange, coin_pair = extract_coin_and_exchange(file_name)
-            print(f'Testing: {exchange} with {coin_pair}')
-            test_envs = create_env(dataset_path='data/test/'+file_name, log_dir=log_dir, state_window_size=args.state_window_size, short=args.short)
-            df_results = evaluate_model_with_tracking_by_coin(model, test_envs)
-            plot_results(df_results, f"output/test_{exchange}_{coin_pair}")
-            test_envs.unwrapped.save_for_render(dir=f"output/test_{exchange}_{coin_pair}")
-
-
+    performance_records = []
+    for dataset in ['test', 'train']:
+        for file_name in os.listdir(f'data/{dataset}'):
+            if file_name.endswith(".pkl"):
+                exchange, coin_pair = extract_coin_and_exchange(file_name)
+                print(f'Testing: {exchange} with {coin_pair} on {dataset} set')
+                test_envs = create_env(dataset_path=f'data/{dataset}/{file_name}', log_dir=log_dir, state_window_size=args.state_window_size, short=args.short)
+                df_results, stats = evaluate_model_with_tracking_by_coin(model, test_envs)
+                plot_results(df_results, f"{log_dir}/output/{dataset}_{exchange}_{coin_pair}")
+                test_envs.unwrapped.save_for_render(dir=f"{log_dir}/output/{dataset}_{exchange}_{coin_pair}")
+                # Ajouter les performances au DataFrame
+                performance_records.append({
+                    "Set": dataset,
+                    "Exchange": exchange,
+                    "Coin": coin_pair,
+                    "Portfolio Return": stats['portfolio_return'],
+                    "Market Return": stats['market_return'],
+                    "Number Buys": stats['num_achats'],
+                })
+    calculate_performance(performance_records, log_dir)
+                
 if __name__ == "__main__":
     # Si pas fixé, les résultats ne sont pas constant. #TODO find which is problematic
     np.random.seed(42)
@@ -67,7 +80,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_steps", type=int, default=2048, help="Number of steps for the optimizer.")
     parser.add_argument("--n_epochs", type=int, default=15, help="Number of epochs for training.")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training.")
-    parser.add_argument("--total_timesteps", type=int, default=100000, help="Total timesteps for training.")
+    parser.add_argument("--total_timesteps", type=int, default=1_000_000, help="Total timesteps for training.")
     parser.add_argument("--short", action="store_true", help="Enable short selling.")
-    parser.add_argument("--model_path", type=str, default="model.pkl", help="Path to save the trained model.")
+    parser.add_argument("--model_path", type=str, default="logs/20240814-154728/best_model.zip", help="Path to save the trained model.")
     main(parser.parse_args())

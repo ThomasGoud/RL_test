@@ -43,7 +43,7 @@ def create_callbacks(eval_env, log_dir, reward_threshold=None, checkpoint_freq=1
 
     # Callback pour évaluer le modèle périodiquement et sauvegarder le meilleur
     eval_callback = EvalCallback(eval_env, best_model_save_path=log_dir,
-                                 log_path=log_dir, eval_freq=5000,
+                                 log_path=log_dir, eval_freq=1000,
                                  deterministic=True, render=False)
 
     # Callback pour arrêter l'entraînement si la récompense atteint un certain seuil
@@ -71,7 +71,7 @@ def train_ppo(env, eval_env, log_dir, total_timesteps=1000, n_steps=2048, batch_
     """
     # Paramètres spécifiques du modèle
     policy_kwargs = dict(
-        features_extractor_class=CNN_LSTM_FeatureExtractor  # Choisir votre extracteur de features
+        features_extractor_class=GTrXL_FeatureExtractor  # Choisir votre extracteur de features
     )
 
     # Crée les callbacks
@@ -92,4 +92,3 @@ def train_ppo(env, eval_env, log_dir, total_timesteps=1000, n_steps=2048, batch_
     model.learn(total_timesteps=total_timesteps, callback=callbacks)
 
     return model
-

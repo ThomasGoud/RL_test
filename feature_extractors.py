@@ -40,7 +40,7 @@ class CNN_1D_FeatureExtractor(BaseFeaturesExtractor):
 
 
 class GTrXL_FeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Box, n_transformer_layers: int, n_attn_heads: int, features_dim: int = 32):
+    def __init__(self, observation_space: gym.spaces.Box, n_transformer_layers: int=8, n_attn_heads: int=16, features_dim: int = 32):
         super(GTrXL_FeatureExtractor, self).__init__(observation_space, features_dim)
 
         seq_len, state_dim = observation_space.shape
