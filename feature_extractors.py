@@ -40,10 +40,10 @@ class CNN_1D_FeatureExtractor(BaseFeaturesExtractor):
 
 
 class GTrXL_FeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Box, n_transformer_layers: int=8, n_attn_heads: int=16, features_dim: int = 32):
+    def __init__(self, observation_space: gym.spaces.Box, n_transformer_layers: int=4, n_attn_heads: int=4, features_dim: int = 128):
         super(GTrXL_FeatureExtractor, self).__init__(observation_space, features_dim)
 
-        seq_len, state_dim = observation_space.shape
+        *seq_len, state_dim = observation_space.shape
         print("Sequence Length (seq_len):", seq_len)
         print("State Dimension (state_dim):", state_dim)
         
@@ -69,6 +69,8 @@ class GTrXL_FeatureExtractor(BaseFeaturesExtractor):
         
     def forward(self, observations: th.Tensor) -> th.Tensor:
         # Adapter les dimensions pour CNN1D [batch_size, channels, seq_len]
+        if len(observations.shape) > 3:
+            observations = observations.squeeze()
         observations = observations.permute(0, 2, 1)
         cnn_output = self.cnn1d(observations)
 
@@ -83,7 +85,7 @@ class CNN_LSTM_FeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 128, lstm_hidden_dim: int = 64, lstm_layers: int = 2):
         super(CNN_LSTM_FeatureExtractor, self).__init__(observation_space, features_dim)
 
-        sequence_length, input_dim = observation_space.shape
+        *sequence_length, input_dim = observation_space.shape
 
         # CNN 1D layers
         self.cnn = nn.Sequential(
