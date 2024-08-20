@@ -1,3 +1,4 @@
+""" Data related functions """ 
 import os
 import datetime
 import pandas as pd
@@ -33,7 +34,7 @@ def download_and_split_data(
             since=datetime.datetime.now() - datetime.timedelta(days=n_days),
             until=datetime.datetime.now(),
         )
- 
+
     if not os.path.exists(output_dir+'/train/') or not os.path.exists(output_dir+'/val/') or not os.path.exists(output_dir+'/test/'):
         process_data_splits(data_dir="data")
 
@@ -170,9 +171,10 @@ def preprocess_data(data):
     close_std = data['close'].std()
 
     # Columns to be normalized
-    columns_to_normalize = ['feature_Close', 'feature_SMA_7', 'feature_EMA_7', 'feature_SMA_20', 'feature_EMA_20', 'feature_SMA_40', 'feature_EMA_40', 'feature_SMA_60', 'feature_EMA_60',
-                            'feature_SMA_100', 'feature_EMA_100', 'feature_SMA_200', 'feature_EMA_200', 'feature_Support', 'feature_Resistance',
-                            'feature_Prev_High', 'feature_Prev_Low', 'feature_VWAP', 'feature_MACD', 'feature_bb_bbm', 'feature_bb_bbh', 'feature_bb_bbl', 'feature_psar']
+    columns_to_normalize = ['feature_Close', 'feature_SMA_7', 'feature_EMA_7', 'feature_SMA_20', 'feature_EMA_20', 'feature_SMA_40', 'feature_EMA_40',
+                            'feature_SMA_60', 'feature_EMA_60', 'feature_SMA_100', 'feature_EMA_100', 'feature_SMA_200', 'feature_EMA_200',
+                            'feature_Support', 'feature_Resistance', 'feature_Prev_High', 'feature_Prev_Low', 'feature_VWAP', 'feature_MACD',
+                            'feature_bb_bbm', 'feature_bb_bbh', 'feature_bb_bbl', 'feature_psar']
 
     # Apply normalization to the specified columns
     data[columns_to_normalize] = data[columns_to_normalize].apply(lambda x: (x - close_mean) / close_std)
@@ -234,6 +236,7 @@ def calculate_psar(high, low, close, step=0.02, max_step=0.2):
 
 # Calculate ADX
 def calculate_adx(df, period=14):
+    """ ADX calculation """
     high = df['high']
     low = df['low']
     close = df['close']
@@ -249,6 +252,7 @@ def calculate_adx(df, period=14):
 
 # Calculate MFI
 def calculate_mfi(df, period=14):
+    """ MFI calculation """
     # Calculate typical price
     typical_price = (df['high'] + df['low'] + df['close']) / 3
 
@@ -273,6 +277,7 @@ def calculate_mfi(df, period=14):
 
 # Calculate VWAP
 def calculate_rolling_vwap(df, window=20):
+    """ VWAP calculation """
     # Calculate typical price
     typical_price = (df['high'] + df['low'] + df['close']) / 3
 
